@@ -1,0 +1,22 @@
+name: Feature request
+description: Explain a problem Eave could solve.
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe the workflow or limitation you encounter.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Explain what you would expect to see or do in Eave.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives and relevant macOS constraints
+      description: Optional. Include public API references if the request involves system integration.

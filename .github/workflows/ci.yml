@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build and test · macOS 26 · arm64
+    runs-on: macos-26
+    timeout-minutes: 30
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Verify the selected toolchain
+        run: |
+          test -d "$DEVELOPER_DIR"
+          test "$(uname -m)" = arm64
+          xcodebuild -version
+          swift --version
+          xcrun --sdk macosx --show-sdk-version
+
+      - name: Check shell syntax
+        run: |
+          for script in Scripts/*.sh; do bash -n "$script"; done
+
+      - name: Build
+        run: swift build --arch arm64
+
+      - name: Run tests
+        run: swift test --arch arm64
+
+      - name: Build and validate the local app bundle
+        run: |
+          ./Scripts/build-app.sh release
+          codesign --verify --strict dist/Eave.app
+
+      - name: Record verification scope
+        run: |
+          {
+            echo '### Verification scope'
+            echo 'Build and automated tests ran on the hosted macOS 26 arm64 image with Xcode 26.6.'
+            echo 'This does not verify visual menu-bar behavior, macOS 27 runtime behavior, or notarization.'
+          } >> "$GITHUB_STEP_SUMMARY"

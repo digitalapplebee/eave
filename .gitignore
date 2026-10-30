@@ -1,0 +1,37 @@
+.build/
+dist/
+.release-work/
+build/
+DerivedData/
+.DS_Store
+._*
+.swiftpm/
+*.xcuserstate
+xcuserdata/
+*.xcarchive/
+*.dSYM/
+*.app/
+*.dmg
+*.zip
+*.log
+*.tmp
+
+# Runtime wallpaper/recovery data must never be published.
+/Generated/
+/recovery.json
+/instance.lock
+
+# Local signing material and secrets. Do not add credentials to this repository.
+.env
+.env.*
+!.env.example
+.secrets/
+.certificates/
+*.p12
+*.pfx
+*.p8
+*.pem
+*.key
+*.cer
+*.mobileprovision
+*.provisionprofile
