@@ -15,7 +15,7 @@ struct SettingsView: View {
                     .font(.caption).foregroundStyle(.secondary)
                 ColorProfileRow(title: "Light", selection: $model.settings.light)
                 ColorProfileRow(title: "Dark", selection: $model.settings.dark)
-                Toggle("Launch at Login", isOn: Binding(get: { model.settings.launchAtLogin }, set: model.setLogin))
+                Toggle("Launch at Login", isOn: Binding(get: { model.settings.launchAtLogin }, set: { model.setLogin($0) }))
                 if model.loginStatus == .requiresApproval {
                     Button("Approve in Login Items…") { SMAppService.openSystemSettingsLoginItems() }
                 }
