@@ -9,7 +9,7 @@ A minimal, open-source macOS utility for customizing your menu bar.
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![CI](https://github.com/digitalapplebee/eave/actions/workflows/ci.yml/badge.svg)](https://github.com/digitalapplebee/eave/actions/workflows/ci.yml)
 
-Eave puts a color band in a separate copy of a supported still wallpaper. Your real menu bar, icons and interactions stay in place. It runs from the menu bar, without a permanent Dock icon.
+Eave colors the background behind your real menu bar. On macOS 27, a confirmed transparent-menu setup can keep dynamic wallpapers intact; a separate still-wallpaper composition path is also available. Native menu controls stay in place. Eave runs from the menu bar, without a permanent Dock icon.
 
 **Release status:** the source is public, and v0.1.0 is prepared locally. No downloadable GitHub release has been published yet. Check [Releases](https://github.com/digitalapplebee/eave/releases) for future installers, or build locally with the commands below. The [release checklist](docs/releasing.md) records the checks needed before distributing a binary release.
 
@@ -22,10 +22,13 @@ Eave puts a color band in a separate copy of a supported still wallpaper. Your r
 - Separate Light and Dark color profiles, with Follow System automation.
 - A native SwiftUI popover with a live preview, Settings and About windows.
 - Persistent preferences and Launch at Login through macOS Login Items.
+- Transparent-menu rendering on macOS 27 without replacing the selected wallpaper.
 - Per-display composition, display/Space/wake event handling and a recovery journal.
 - No accounts, analytics, subscriptions, updater or application network requests.
 
-**Use a local still PNG, JPEG, TIFF or HEIF image.** Dynamic/Aerial wallpapers, including Golden Gate, are not customized when their configuration cannot be preserved. Unknown sources or incomplete placement information are left untouched. macOS controls the final menu-bar tint and text color; an exact displayed HEX color is not guaranteed.
+**For Golden Gate or another dynamic wallpaper on macOS 27:** turn off **System Settings → Menu Bar → Show menu bar background**, then confirm **Background is off** in Eave. Eave adds a background window below the native menu without writing to the wallpaper provider. This does not add support for rewriting dynamic wallpaper files.
+
+Without that confirmed setup, wallpaper composition requires a local still PNG, JPEG, TIFF or HEIF image with known placement options. Managed posters and unknown sources are not substituted for the selected wallpaper. macOS retains its native text color: choose a contrasting background. White text can become unreadable on a white band.
 
 ## Install without Xcode
 
@@ -35,7 +38,7 @@ Once the maintainer publishes a release:
 2. Download `Eave-v0.1.0.dmg` or `Eave-v0.1.0.zip`, along with `SHA256SUMS.txt` to verify the download.
 3. Open the DMG and drag **Eave** to **Applications**, or extract the ZIP and move `Eave.app` there.
 4. Open Eave from Applications, then click its icon in the macOS menu bar.
-5. Enable customization for a supported still wallpaper. The first launch starts with the effect disabled.
+5. Enable customization and follow Eave's setup/status message. The first launch starts with the effect disabled.
 
 The locally prepared v0.1.0 artifacts are **ad-hoc signed, not Developer ID signed or notarized**. Downloaded copies can be blocked by Gatekeeper. If you trust the source and macOS offers it after an attempted launch, use **System Settings → Privacy & Security → Open Anyway**, following [Apple's supported approval workflow](https://support.apple.com/en-us/102445). Do not disable Gatekeeper globally. A release is notarized only if its notes explicitly say so.
 
@@ -49,18 +52,20 @@ shasum -a 256 -c SHA256SUMS.txt
 
 Click the menu-bar icon and turn on **Enable Eave**. Choose a preset, open the custom color well, or adjust opacity. **Hide Notch** overrides the selected color with opaque black; it does not change resolution or move the native menu bar.
 
+For transparent-menu rendering on macOS 27, choose **Menu Bar Settings**, turn off **Show menu bar background**, return to Eave and select **Background is off**. This is a manual confirmation; Eave does not change or read that global preference through an undocumented API. Keep **Reduce Transparency** off for this path. If you later re-enable the system background, reset the setup confirmation in Eave's Settings before configuring it again.
+
 Choose **Follow System**, **Light** or **Dark**. In Settings, edit the separate color profiles and enable **Launch at Login**. macOS may require approval in Login Items. Install Eave in its permanent location before registering it for login.
 
-Turn Eave off to restore visible desktops. **Visit every affected Space and reconnect affected displays while Eave is disabled before quitting.** Quit also tries to restore visible desktops; it keeps Eave open and explains restoration failures. If an older version recorded a system poster instead of the original Dynamic Wallpaper, select the wallpaper you want again in System Settings.
+Turning Eave off removes its transparent-menu background windows. If wallpaper composition was used, it restores visible desktops: **visit every affected Space and reconnect affected displays while Eave is disabled before quitting**. Quit also tries to restore visible composed wallpapers; it keeps Eave open and explains restoration failures. If an older version recorded a system poster instead of the original Dynamic Wallpaper, select the wallpaper you want again in System Settings.
 
-The preview inside Eave represents the selected style; it is not evidence that macOS has accepted or displayed the effect. Read the status for unsupported sources, errors or pending confirmation.
+The header reports the actual effect state, including **Applied**, **Not applied**, partial application and restoration. The separate style preview represents the selected color; it is not a desktop capture or proof of application. Read the status for setup requirements, errors or pending confirmation.
 
 ## Compatibility
 
 | Platform | Status |
 | --- | --- |
-| macOS 27.0.1, Apple Silicon | Local build, tests, menu-bar-agent startup and no-write preservation checks verified. Full static-desktop visual acceptance is still pending. |
-| macOS 26, Apple Silicon | Minimum deployment target and hosted build/test target. Check CI for automated results; physical desktop behavior remains unverified. |
+| macOS 27.0.1, Apple Silicon | Local build/startup and preservation checks verified. Transparent-menu black/red backgrounds were observed on the built-in display after the system background was disabled. Other physical scenarios and static-composition visual acceptance remain pending. |
+| macOS 26, Apple Silicon | Minimum deployment and hosted build/test target. Uses wallpaper composition; transparent-menu rendering is limited to macOS 27. Physical desktop behavior remains unverified. |
 | macOS 25 or earlier | Unsupported by the deployment target. |
 | Intel Macs | Not included in the current arm64 distribution. |
 
@@ -108,15 +113,19 @@ Omit `--dmg` for ZIP-only packaging. These commands do not publish anything. See
 
 ## How it works
 
-Eave reads the visible desktop's image URL and placement options through `NSWorkspace`, checks the source, and renders an independent copy with ImageIO and Core Graphics. Geometry comes from `NSScreen`. It records the original URL/options before calling `setDesktopImageURL`; it never edits an original wallpaper or uses generated output as the next source.
+With transparent-menu setup confirmed on macOS 27, Eave uses a narrow nonactivating `NSPanel` below the native menu's window level. It ignores mouse events, cannot become the key/main window, and follows the measured menu bounds. No wallpaper setter is used. Removing the panel restores the previous appearance, and macOS removes its windows when the process exits.
+
+The composition fallback reads image URLs/options through `NSWorkspace` and renders independent still-image copies with ImageIO and Core Graphics. It journals originals before calling `setDesktopImageURL`, never edits an original file and never uses generated output as the next source. Existing Eave wallpaper copies must be safely restored before switching to transparent-menu rendering.
 
 Rendering runs outside the UI actor, slider changes are combined, and stale work cannot replace newer settings. System events replace continuous polling. The journal supports recovery after a restart and avoids overwriting wallpaper changes made outside Eave.
 
 Public APIs have limits:
 
-- Dynamic/video/Light–Dark wallpapers and system-managed posters have no supported preservation path. A readable single-frame poster is not treated as the selected dynamic configuration.
-- Only visible desktops can be restored immediately. Other Spaces/disconnected displays retain recovery records. Applying an image may turn off macOS **Show on all Spaces**.
-- The band remains part of the wallpaper when the menu bar auto-hides. Full-screen apps may obscure it.
+- Dynamic providers are not rewritten or reconstructed. Transparent-menu rendering colors a separate window while leaving their configuration intact. The composition fallback still rejects dynamic files and system posters.
+- The transparent-menu path pauses when the native menu is hidden/full-screen or when system presentation/transparency settings make it unavailable. Full-screen, auto-hide and multiple physical displays are not claimed as visually verified.
+- macOS retains menu text/icon colors. A background can therefore have poor contrast even when the selected color is applied.
+- Composition can immediately restore only visible desktops. Other Spaces/disconnected displays retain recovery records. Applying an image may turn off macOS **Show on all Spaces**.
+- A composed wallpaper band remains when the menu bar auto-hides. Full-screen apps may obscure it.
 - System appearance changes select Eave's saved profile; Eave does not change the system appearance itself.
 - Scripted wallpaper changes are noticed on the next relevant event or manual check, not by a polling timer.
 
@@ -136,7 +145,7 @@ The local journal contains wallpaper file URLs and display UUIDs. Unified Loggin
 
 ## Uninstall safely
 
-1. Turn Eave off. Visit all affected Spaces and reconnect affected displays; confirm restoration and resolve any error first.
+1. Turn Eave off and confirm its background windows disappear. If composition was used, visit all affected Spaces and reconnect affected displays; confirm wallpaper restoration and resolve any error first.
 2. Turn off **Launch at Login** in Eave or remove it from macOS Login Items.
 3. Quit Eave, then move `Eave.app` from Applications to the Trash.
 4. Optionally remove default-bundle preferences with `defaults delete com.eaveapp.Eave`. A custom bundle ID uses a different domain.

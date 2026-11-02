@@ -4,6 +4,15 @@ Notable changes are recorded here. The format follows [Keep a Changelog](https:/
 
 ## [Unreleased]
 
+### Added
+
+- Transparent-menu coloring on macOS 27 after manually confirming that the system menu-bar background is off; dynamic wallpaper providers stay selected.
+
+### Fixed
+
+- Show the observed effect/restoration state separately from the enable request and selected-style preview.
+- Mark scheduled appearance updates pending before debounce, and remove the duplicate opacity-slider label.
+
 ## [0.1.0] — Prepared, not published
 
 ### Added
@@ -27,7 +36,7 @@ Notable changes are recorded here. The format follows [Keep a Changelog](https:/
 
 ### Limitations
 
-- Dynamic, Aerial/Golden Gate, and detected managed wallpapers are left unchanged; no dynamic wallpaper customization is claimed.
+- Dynamic wallpaper files are not rewritten. Transparent-menu coloring requires macOS 27, explicit setup and a contrasting background because macOS retains its menu text color.
 - macOS controls the final menu bar translucency and text colors.
 - Automatic restoration is limited to visible desktops; other Spaces must be visited before quitting.
 - Local macOS 27 build/unit-test and preservation checks do not establish complete visual compatibility. The manual checklist remains part of release approval.

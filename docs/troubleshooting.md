@@ -1,12 +1,26 @@
 # Troubleshooting
 
-Start with the message in Eave's popover or **Settings → Displays**. An enabled switch records the requested configuration; it does not mean every display accepted the effect.
+Start with the effect status near Eave's switch and the message in the popover or **Settings → Displays**. An enabled switch records the requested configuration; **Applied**, **Not applied**, partial results and restoration are reported separately. The style preview is not a desktop capture.
 
 ## No effect on Golden Gate or another dynamic wallpaper
 
-This is intentional. Eave cannot preserve the full configuration of Aerial/video, time-dependent or Light/Dark dynamic providers while replacing their image. It leaves detected managed sources untouched and explains the limitation.
+On macOS 27, use the transparent-menu setup:
 
-To use color customization, choose a local still PNG, JPEG, single-frame TIFF or HEIF image in Wallpaper settings, disable automatic rotation, then use **Retry**. A readable system poster is not treated as proof of a safely customizable wallpaper.
+1. Choose **Menu Bar Settings** in Eave, or open **System Settings → Menu Bar**.
+2. Turn **Show menu bar background** off. Keep **Accessibility → Display → Reduce Transparency** off.
+3. Return to Eave and select **Background is off** to confirm the setup.
+
+Eave then draws below the native menu without replacing the selected wallpaper. This path was visually checked with Golden Gate Automatic on a built-in macOS 27 display. Golden Gate is an abstract Dynamic Wallpaper, distinct from the Golden Gate Sunset aerial/video wallpaper.
+
+The setup confirmation is manual. Eave has no public API for reading/changing that global background preference. If you later enable the system background, it can hide Eave's color; reset the confirmation in Eave's Settings and configure it again.
+
+On macOS 26, or without confirmed transparent-menu setup, the wallpaper-composition fallback supports only suitable local still PNG/JPEG/TIFF/HEIF sources. It cannot preserve dynamic providers while replacing their image. A readable system poster is not treated as the selected wallpaper's configuration.
+
+## Transparent-menu rendering pauses or does not appear
+
+The transparent-menu path is suspended when the native menu is hidden/full-screen or system presentation settings disable transparency. Check the status rather than repeatedly toggling Eave. Return to a normal visible menu and recheck after the relevant system event.
+
+Full-screen, auto-hide and multiple physical displays still require manual acceptance. Creating a panel alone is not proof that the system background allows its color to show.
 
 ## An older Eave build already changed Golden Gate
 
@@ -22,7 +36,9 @@ The earlier black-band defect and measured evidence are documented in [Rendering
 
 ## Black looks gray, or the text color differs from the preview
 
-macOS controls menu translucency, tint and text contrast. Eave changes the wallpaper underneath the menu, not those system settings. **Accessibility → Display → Reduce Transparency** may affect the result; Eave provides a shortcut but does not change it automatically. Full-screen apps can also cover the effect.
+macOS controls menu translucency, tint and text color. Transparent-menu rendering does not recolor native glyphs: the development probe applied white while the native text stayed white, making it unreadable. Choose a contrasting background; black and dark colors work with the white glyphs in the verified Golden Gate dark-appearance scenario. Do not infer readability from the preview.
+
+**Reduce Transparency** prevents this transparent-menu path and must be off. In wallpaper-composition mode it can also affect the final result. Eave provides a shortcut but does not change the setting automatically. Full-screen apps can obscure composition effects.
 
 The preview inside Eave is an illustration of the selected style, not a capture or guarantee of the final system-composited color.
 
@@ -34,7 +50,7 @@ If the message persists, open Wallpaper settings and inspect the selected source
 
 ## Eave paused after an external wallpaper change
 
-When Eave detects a new URL or layout, it preserves the external choice. Use **Retry** only when you want to apply Eave to the now-selected, supported wallpaper. Changes made by scripts may be noticed at the next activation, display, wake or Space event; Eave does not continuously poll.
+In composition mode, Eave preserves a detected external URL/layout choice. Use **Retry** only when you want to apply composition to the now-selected, supported still wallpaper. Transparent-menu rendering does not replace an external wallpaper choice. Changes may be noticed at the next activation, display, wake or Space event; Eave does not continuously poll.
 
 ## Original wallpaper is missing, or Eave will not quit
 

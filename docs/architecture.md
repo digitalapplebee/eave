@@ -9,6 +9,7 @@ Eave is a Swift package with an AppKit/SwiftUI executable, an internal core modu
 | `Eave/App/` | MenuBarExtra, settings and About windows, application lifecycle, diagnostic entrypoints |
 | `AppModel` | Observable UI state, preference persistence, appearance selection, render scheduling, ServiceManagement integration |
 | `MenuBarAppearanceEngine` | MainActor coordination of displays, recovery records, accepted changes, confirmation and restoration |
+| `MenuBarUnderlay` | Click-through background windows below the native menu after transparent-menu setup is confirmed on macOS 27 |
 | `WallpaperSource` | Classifies local still images, dynamic images, managed providers/posters and unknown sources |
 | `WallpaperRenderer` | Actor-isolated ImageIO decoding, Core Graphics composition and generated-image caching |
 | `AppKitWallpaperSystem` | Main-thread `NSWorkspace` wallpaper reads and writes |
@@ -16,9 +17,21 @@ Eave is a Swift package with an AppKit/SwiftUI executable, an internal core modu
 | `SystemEventMonitor` | Appearance, display, Space, activation and sleep/wake events |
 | `WallpaperRecoveryService` | Durable original metadata, ownership checks and safe generated-file cleanup |
 
-`WallpaperSystem` and `WallpaperRendering` are injectable protocols. Tests can delay rendering or simulate system failures without changing real desktop wallpapers.
+Wallpaper and transparent-menu rendering use injectable adapters. Tests can delay rendering or simulate system failures without changing real desktop wallpapers or opening real background windows.
 
-## Rendering transaction
+## Transparent-menu rendering
+
+On macOS 27, the user can turn off **Show menu bar background** in System Settings and confirm **Background is off** in Eave. The optional `transparentMenuBarConfirmed` preference defaults to unconfirmed when reading older preferences. Eave does not use a private preference key to read or change the global setting.
+
+With setup confirmed, raw wallpaper sources use a thin AppKit panel rather than image composition. The panel is borderless and nonactivating, cannot become key/main, has no shadow, ignores mouse events and sits at `mainMenuWindow - 1`. It remains below the real menu controls. Bounds come from the native menu's Core Graphics window metadata and are mapped into the display's AppKit coordinates; an override of `constrainFrameRect` permits that intended top-of-screen placement.
+
+This path neither decodes nor writes the selected wallpaper. Dynamic behavior remains owned by macOS. Removing the panels disables the effect; process termination also removes them. Existing journal-owned Eave wallpapers must be safely restored first, so a new background window does not conceal an unresolved legacy wallpaper substitution.
+
+System presentation and accessibility events suspend this path when menus are hidden/full-screen or transparency is disabled. Native text/icon colors are not changed. The panel can apply a white background while native white glyphs remain white, so the UI and documentation advise choosing contrasting colors.
+
+## Wallpaper composition transaction
+
+Before transparent-menu setup is confirmed, or on macOS 26, the existing composition path remains available for supported still images:
 
 1. Read the latest settings, connected displays, wallpaper URL and options.
 2. Resolve an existing Eave output back to its journaled original. Generated files never become new originals.
@@ -28,13 +41,13 @@ Eave is a Swift package with an AppKit/SwiftUI executable, an internal core modu
 6. Persist the original URL and archived options before calling `setDesktopImageURL`.
 7. Submit the composed PNG, then compare the observed state with the expected result. Acceptance and confirmation are separate states.
 
-The application never edits the original image, captures the desktop as a wallpaper source, covers native menu controls, or changes display resolution.
+Neither path edits an original image, captures the desktop as a wallpaper source, places an intercepting window over native menu controls, or changes display resolution. Screen capture used for development probes is not part of the shipped rendering path.
 
 ### Coordinates and placement
 
 Screen measurements enter as local AppKit points. Canvas dimensions use the screen's backing scale. A single conversion maps the top-left menu-band rectangle into Quartz's bottom-left pixel coordinates; a secondary display's global origin never offsets its band.
 
-`visibleFrame` is a work-area measurement, not an unconditional menu height. Its top inset is accepted only within bounds derived from the native status-bar thickness and safe area. Invalid geometry blocks application.
+For wallpaper composition, `visibleFrame` is a work-area measurement, not an unconditional menu height. Its top inset is accepted only within bounds derived from the native status-bar thickness and safe area. Invalid geometry blocks application. Transparent-menu panels instead use the observed native menu bounds; on the measured display that was 39 points, rather than the 40-point work-area exclusion.
 
 Image placement uses the original oriented image dimensions, independently of thumbnail decoding. Center mode accounts for image DPI before converting to backing pixels. Known Fill, Fit, Stretch and Center settings are reproduced; existing Fit/Center margins are preserved. AppKit ignores clipping for non-proportional modes, so an omitted clipping key is meaningful only for proportional scaling.
 
@@ -44,13 +57,15 @@ The renderer produces an opaque, 8-bit PNG, retaining the original RGB color spa
 
 Enable/disable and system events are scheduled immediately. Color and opacity changes use a 220 ms debounce to combine slider events. Cancellation and a revision number prevent an older result from applying after a newer request.
 
+`AppModel` marks the latest request pending synchronously, including during debounce. A generation-checked completion clears it. Thus old **Applied** results are not displayed next to a newly selected style, and a disabled request is shown as restoring while its new outcome is being checked.
+
 All system wallpaper mutations run on MainActor. Pending changes retain their target and known intermediate states, so a delayed getter does not trigger duplicate setters or confuse an earlier accepted Eave output with an external change. Disabling supersedes an accepted but unconfirmed enable.
 
 Generated-image keys include the renderer version, original URL and file version, geometry, placement and color. Decoded images use an `NSCache` with a 128 MiB cost limit. Rendering working buffers can exceed that limit. There is no periodic polling or persistent render loop.
 
 ## Persistence and recovery
 
-UI preferences live in UserDefaults under `eave.settings.v1`. With the default bundle identifier, recovery data lives in `~/Library/Application Support/com.eaveapp.Eave/`:
+UI preferences, including the manual transparent-menu setup confirmation, live in UserDefaults under `eave.settings.v1`. With the default bundle identifier, composition recovery data lives in `~/Library/Application Support/com.eaveapp.Eave/`:
 
 - `recovery.json`: display UUIDs, original file URLs, archived wallpaper options and generated URLs.
 - `Generated/`: Eave's image copies and temporary render files.
@@ -64,7 +79,9 @@ Only unreferenced Eave PNG/tmp files older than a day are cleaned automatically.
 
 ## Platform boundaries
 
-`NSWorkspace` exposes image URLs and legacy layout options, not a complete provider configuration. Eave does not customize Golden Gate/Aerial, video, time-dependent or Light/Dark dynamic wallpapers. System-hosted images are conservatively treated as managed, including readable single-frame posters. Unknown third-party providers cannot always be identified reliably and are not a supported configuration.
+`NSWorkspace` exposes image URLs and legacy layout options, not a complete provider configuration. Eave does not rewrite Golden Gate, video, time-dependent or Light/Dark dynamic wallpapers. Confirmed transparent-menu rendering can color the menu independently of those sources on macOS 27; this is separate from support for provider-file composition/restoration. Golden Gate Automatic is the abstract Dynamic Wallpaper, distinct from the Golden Gate Sunset aerial/video selection.
+
+The composition fallback conservatively treats system-hosted images as managed, including readable single-frame posters. Unknown third-party providers cannot always be identified reliably and are not a supported composition configuration.
 
 Wallpaper reads and writes concern visible desktops. Display/Space events allow reconciliation when another desktop becomes visible, but there is no supported enumeration-and-restore operation for all Spaces. Full-screen windows can obscure the effect; menu auto-hide does not remove the wallpaper band. See the [validation record](rendering-validation.md) for verified behavior and the remaining manual checks.
 

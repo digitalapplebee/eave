@@ -6,7 +6,7 @@ This record separates observed defects, automated regression checks and unverifi
 
 On macOS 27.0.1, existing recovery records and generated PNGs were inspected without changing the desktop. Three records identified `/System/Library/CoreServices/DefaultDesktop.heic` as the original. It is a symlink to `/System/Library/Wallpapers/.default/DefaultAerial.heic`; ImageIO reported one 4096×2160 frame.
 
-The earlier classifier rejected some provider paths and multi-frame HEICs, but accepted this single-frame system poster as an ordinary still image. The user had selected Golden Gate. An image URL and three legacy options do not preserve that provider's full configuration, so composing or “restoring” the poster could replace the selected wallpaper.
+The earlier classifier rejected some provider paths and multi-frame HEICs, but accepted this single-frame system poster as an ordinary still image. The user had selected Golden Gate Automatic, the abstract Dynamic Wallpaper rather than the Golden Gate Sunset aerial/video selection. An image URL and three legacy options do not preserve that provider's full configuration, so composing or “restoring” the poster could replace the selected wallpaper.
 
 Some journal records used `clips=false`. Missing options were also previously replaced with proportional Fit, no clipping and black fill. On a 3600×2338 canvas, fitting 4096×2160 yields an image about 1898 pixels high, leaving roughly 220 pixels above and below it. Stored PNGs contained **219 fully black rows at both edges**. With clipping enabled, the black preset had **80 black rows at the top and none at the bottom**. This confirms letterboxing as the source of the large bars; changing only a menu-height constant would not fix it.
 
@@ -26,20 +26,22 @@ Delayed getters and out-of-order render completion were separately tested as sta
 - Apply enable/disable without debounce. Cancellation and revisions discard stale renders; setters are serialized on MainActor.
 - Track accepted targets and known intermediate outputs separately from observed confirmation. A lagging getter does not submit the same change repeatedly or misclassify an earlier Eave output as an external choice.
 - Supersede an unconfirmed enable when disabling. Roll back a partial write only over Eave's own attempted output. Restore an older Eave image after a render failure only when its still original is safe and no external change intervened.
+- Report actual application/restoration state separately from the saved enable request and label the selected-style preview. Scheduled changes are marked pending before debounce so stale success results do not describe a newly selected style.
+- On macOS 27, offer a separately confirmed transparent-menu path. It uses nonactivating, click-through background panels below the native menu instead of replacing a dynamic wallpaper.
 
 ## Source support
 
 | Source | Behavior |
 | --- | --- |
 | Local still PNG/JPEG/TIFF/HEIF with known applicable options | Composition supported |
-| Golden Gate and other Aerial/video providers | Detected managed sources are left untouched |
-| Time-dependent or Light/Dark HEIC with dynamic metadata/multiple frames | Left untouched |
-| System-hosted image, poster, Photos source or known provider/cache path | Conservatively left untouched, including single-frame posters |
+| Golden Gate Automatic, Aerial/video and other raw wallpaper sources on macOS 27 with transparent-menu setup confirmed | Background panel can color the menu without rewriting the provider; only the recorded Golden Gate scenario is visually verified |
+| Time-dependent or Light/Dark HEIC with dynamic metadata/multiple frames | No file composition; provider remains unchanged by transparent-menu rendering |
+| System-hosted image, poster, Photos source or known provider/cache path | No composition/substitution, including single-frame posters |
 | Unknown format, missing meaningful options or unknown layout keys | Rejected without guessed Fit/black values |
 | Missing or unreadable image | Error without a wallpaper write |
 | Legacy journal pointing to a poster rather than a provider configuration | Automatic poster restoration blocked; manual selection required |
 
-**No dynamic wallpaper type is supported for customization.** If an older build already replaced Golden Gate, reselect it in Wallpaper settings. Its full provider configuration cannot be reconstructed from the old journal. Recovery data is retained rather than rewritten to guess an original.
+**Dynamic wallpaper files are not rewritten or reconstructed.** Transparent-menu rendering is an independent background window, not a dynamic-file rendering pipeline. If an older build already replaced Golden Gate, reselect it in Wallpaper settings. Its full provider configuration cannot be reconstructed from the old journal. Existing Eave-owned images must be safely restored before switching paths; recovery data is retained rather than rewritten to guess an original.
 
 An unknown third-party provider can expose a plausible local image and legacy options. Public APIs cannot reliably identify every such case; it is not a supported configuration. Use an explicitly selected local still image with rotation disabled.
 
@@ -47,15 +49,29 @@ An unknown third-party provider can expose a plausible local image and legacy op
 
 [NSWorkspace](https://developer.apple.com/documentation/appkit/nsworkspace) exposes image URLs, legacy options and an image setter. Its [allowClipping](https://developer.apple.com/documentation/appkit/nsworkspace/desktopimageoptionkey/allowclipping) option distinguishes Fit from Fill, but these APIs do not provide a complete provider configuration. Apple also [confirms the lack of an API for setting wallpaper on all Spaces](https://developer.apple.com/forums/thread/834630).
 
-The SDK investigation did not identify a public mechanism that would safely customize Golden Gate while retaining its provider. Documented [window levels](https://developer.apple.com/documentation/appkit/nswindow/level-swift.struct) establish ordering, not a guarantee that native menu compositing samples a lower application window. An unverified overlay was therefore not introduced.
+The SDK investigation did not identify a safe public mechanism for replacing Golden Gate's image while restoring its full provider configuration. The updated approach avoids that operation. Documented [window levels](https://developer.apple.com/documentation/appkit/nswindow/level-swift.struct) establish ordering; the transparent-menu path was introduced only after a visual probe confirmed the supported configuration. The public [frame-constraining override](https://developer.apple.com/documentation/appkit/nswindow/constrainframerect(_:to:)) permits the intended top-of-screen frame without placing a window over the native controls.
 
-## Recorded verification
+## Transparent-menu probe — November 2, 2026
+
+The native menu was observed at layer 24 and 39 points high on the built-in display. A borderless, nonactivating panel at `mainMenuWindow - 1` (layer 23) used that exact top frame. It ignored mouse events and could not become key/main. The frame override prevents AppKit constraining it below the menu; the full work-area inset was not reused as its height.
+
+With **Show menu bar background** enabled, the correctly positioned panel did not visibly tint the menu. After the user disabled that setting, the same probe visibly applied black and red. A blank-background sample changed from approximately `[27, 27, 49]` to `[1, 1, 1]` for black and `[255, 0, 0]` for red. The selected wallpaper URL/options remained unchanged, and public mouse-down hit testing still identified the native menu rather than the panel.
+
+The white probe produced `[255, 255, 255]`, but native white text/icons stayed white and became unreadable. This is a verified limitation: panel color does not automatically change native text contrast. Prefer a contrasting background; no universal readability guarantee is made.
+
+Development screenshots used pre-existing screen-capture access and were limited to the test region. The shipped rendering code does not use ScreenCaptureKit, collect screen pixels, or request Screen Recording/Accessibility permission. The application relies on a manual **Background is off** confirmation because no public getter for that global preference was found.
+
+This verifies a visible-menu configuration on one macOS 27.0.1 built-in display. It does not verify dynamic playback over time, every color/appearance combination, other physical displays, full-screen, auto-hide, or Stage Manager. The implementation suspends the panel when public presentation/transparency conditions make the path unavailable.
+
+The integrated engine was then exercised with a read-only wallpaper adapter: black and dark-red menu backgrounds were captured from the real display, ten toggle requests completed, and the native mouse target stayed unchanged. Measured blank-menu pixels changed from `[27, 27, 49]` to `[1, 1, 1]` and `[204, 1, 0]`, then returned to `[27, 27, 49]` after removal. There were zero wallpaper-write attempts, the original URL/options still matched, and cleanup reported no errors. These captures are temporary test files, not published UI screenshots.
+
+## Recorded verification — composition baseline
 
 | Check | Result |
 | --- | --- |
 | Local environment | macOS 27.0.1, arm64, Xcode 27.1, Swift 6.4 |
 | Debug/Release and packaged ad-hoc app | Built successfully |
-| Automated regression suite | 33 tests in three suites passed; parameterized tests cover additional variants |
+| Automated regression suite | October 30 baseline: 33 tests in three suites. November 2 integration: 52 tests in five suites passed, including actual-state UI derivation and transparent-menu geometry, setup, cleanup, provider preservation and legacy recovery. |
 | Pixel tests | Top-only band, no added bottom band in Fill, explicit Fit fill, Retina DPI Center, EXIF orientation, original-file integrity, cache identity |
 | Geometry tests | Retina/non-Retina, secondary-display origins, safe area, variable heights, hidden-menu fallback, invalid insets, coordinate conversion |
 | State tests | Ten toggle intentions ending ON/OFF, stale colors, intermediate accepted outputs, delayed getter, repeated ON/OFF, restart, partial writes, render failures, external URL/layout changes, legacy records |
@@ -64,7 +80,7 @@ The SDK investigation did not identify a public mechanism that would safely cust
 | Real managed-source preservation diagnostic | Ten toggle intentions, **zero write attempts**, unchanged observed URL/options, exit 0 |
 | Legacy-output preservation diagnostic | Passed with `legacy-output=true`; zero write attempts; unchanged URL/options and recovery-journal SHA-256 |
 
-The preservation diagnostic uses real AppKit snapshots and the same engine, but its adapter blocks every setter even if a regression attempts one. It verifies the refusal path, not the visual color effect or dynamic-wallpaper playback.
+The preservation diagnostic uses real AppKit snapshots and the same engine, but its adapter blocks every setter even if a regression attempts one. Without transparent-menu setup confirmed, it verifies the refusal path, not the visual color effect or dynamic-wallpaper playback.
 
 The API later reported an old Eave PNG whose journal original was DefaultDesktop. The new preflight refused to apply or restore that poster. Returning to the selected Golden Gate requires manual selection in System Settings.
 
@@ -92,10 +108,13 @@ open dist/Eave.app
 ### B — Golden Gate and dynamic wallpapers
 
 - [x] Verify managed system-poster classification and zero write attempts on a real Mac using `--verify-preservation`.
+- [x] With the system menu background disabled, visually observe black/red panel colors below the native menu; confirm unchanged wallpaper URL/options and mouse-down target on the built-in macOS 27 display.
 - [ ] Reselect Golden Gate manually if an older build already replaced it.
-- [ ] Enable in the real popover. A concise unsupported-source message appears; wallpaper identity and dynamic behavior remain intact.
+- [ ] In the rebuilt app, complete **Menu Bar Settings → Show menu bar background off → Background is off**, then enable once and verify the actual effect.
+- [ ] Confirm that **Not applied**, setup, pending and restoration states never look like a completed application; the preview is clearly separate.
 - [ ] Disable. Neither DefaultDesktop nor DefaultAerial is substituted.
-- [ ] Repeat with Light/Dark and time-dependent HEIC wallpapers.
+- [ ] Repeat with Light/Dark, time-dependent and video providers, observing their behavior over time without wallpaper writes.
+- [ ] Check contrast for each selected color/appearance. White-on-white native glyphs are a known failure of readability, not evidence that color was unapplied.
 
 ### C — rapid toggling
 
@@ -107,12 +126,12 @@ open dist/Eave.app
 
 - [ ] Visually check a notched MacBook display at different scaling settings.
 - [ ] Test external Retina/non-Retina displays in different arrangements and during hot-plug.
-- [ ] Test menu auto-hide and system menu-size changes.
-- [ ] Test normal Spaces and full-screen apps. Visit all affected Spaces with Eave disabled before quitting.
+- [ ] Test menu auto-hide and system menu-size changes; transparent-menu rendering should suspend while unavailable.
+- [ ] Test normal Spaces and full-screen apps; do not assume the panel is supported above full-screen content. Visit composition-affected Spaces with Eave disabled before quitting.
 - [ ] Test sleep/wake and lock/unlock.
 - [ ] Change static/dynamic wallpapers while enabled; the external choice is preserved.
 - [ ] Test macOS 26 at runtime.
 
-A physical macOS 27 machine was available. Wallpaper, resolution, Space and sleep changes were not automated because preserving the current wallpaper and user session took priority. The unchecked scenarios remain unverified.
+A physical macOS 27 machine was available. The user explicitly disabled the system menu background for the November 2 probe. Wallpaper, resolution, Space and sleep changes were not automated because preserving the selected wallpaper and user session took priority. The unchecked scenarios remain unverified.
 
 For log collection and recovery actions, see [Troubleshooting](troubleshooting.md). For code structure, see [Architecture](architecture.md).

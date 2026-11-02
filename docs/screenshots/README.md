@@ -1,6 +1,6 @@
 # Genuine screenshots
 
-No UI screenshots are committed yet. Captures require an interactive desktop and a supported still-wallpaper session. During release preparation, screen capture was available but automated interaction with the menu-bar popover was not authorized. The selected managed/legacy wallpaper was left intact. A preview illustration would not demonstrate a real menu-bar effect.
+No UI screenshots are committed yet. Captures require an interactive desktop and either confirmed transparent-menu setup on macOS 27 or a supported still-wallpaper session. Temporary November 2 probes verified the real transparent-menu color while preserving Golden Gate; those test captures remain outside the documentation assets. A preview illustration would not demonstrate a real menu-bar effect.
 
 The README deliberately omits screenshot image links until real captures exist. The icon in `docs/assets/app-icon.png` is exported from Eave's actual app icon; it is not a UI screenshot.
 
@@ -17,7 +17,7 @@ Use the packaged application, not an unbundled `swift run` process. Set aside a 
 
 2. Click Eave's menu-bar icon. Use macOS **Shift–Command–4**, then **Space**, to capture the actual popover window. Save it as `main.png` in this directory. Keep text readable at its native resolution; a 2× Retina capture is suitable.
 3. Open the native custom color picker and capture the genuine picker with enough of Eave visible to establish context. Save as `color-picker.png`. If a window capture cannot include both windows, use **Shift–Command–5 → Capture Selected Portion** and select only the relevant region.
-4. For desktop-effect captures, manually choose a local still PNG/JPEG in Wallpaper settings. Do not use Golden Gate/Aerial or a system-managed wallpaper. Enable Eave with opaque black and verify that only the menu-bar band changes, the notch blends as expected, and no extra bottom band appears. Capture the clean top portion of that real desktop as `dark-menu-bar.png`.
+4. For desktop-effect captures on macOS 27, turn off **Show menu bar background** in System Settings → Menu Bar, then confirm **Background is off** in Eave. This path can retain Golden Gate without replacing it. Alternatively, use a local still PNG/JPEG with wallpaper composition. Enable opaque black and verify that only the real menu-bar area changes and no extra bottom band appears. Capture the clean top portion as `dark-menu-bar.png`.
 5. Select another implemented preset, such as Graphite or Gray, verify the actual effect, and capture the same region as `customization.png`.
 6. Disable Eave, visit every affected Space/display, and confirm restoration. Restore the wallpaper you want to keep.
 
