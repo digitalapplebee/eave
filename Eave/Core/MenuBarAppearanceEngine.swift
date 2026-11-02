@@ -8,6 +8,8 @@ public struct DisplayStatus: Identifiable {
     public let applied: Bool
     public var failed = false
     public var pending = false
+    public var requiresMenuSetup = false
+    public var usesUnderlay = false
 }
 
 @MainActor
@@ -18,6 +20,7 @@ public final class MenuBarAppearanceEngine: ObservableObject {
     private let system: any WallpaperSystem
     private let renderer: any WallpaperRendering
     private let displays: @MainActor () -> [Display]
+    private let underlay: any MenuBarUnderlayRendering
     private var revision = 0
     private struct PendingChange {
         let before: WallpaperSnapshot
@@ -38,13 +41,21 @@ public final class MenuBarAppearanceEngine: ObservableObject {
 
     public init(recovery: WallpaperRecoveryService, system: any WallpaperSystem = AppKitWallpaperSystem(),
                 renderer: (any WallpaperRendering)? = nil,
-                displays: @escaping @MainActor () -> [Display] = DisplayManager.connected) {
+                displays: @escaping @MainActor () -> [Display] = DisplayManager.connected,
+                underlay: (any MenuBarUnderlayRendering)? = nil) {
         self.recovery = recovery; self.system = system
         self.renderer = renderer ?? WallpaperRenderer(directory: recovery.generatedDirectory)
         self.displays = displays
+        self.underlay = underlay ?? MenuBarUnderlay()
     }
 
     public func invalidate() { revision += 1 }
+
+    public func suspend() {
+        invalidate()
+        underlay.removeAll()
+        isApplying = false
+    }
 
     public func reconcile(settings: EaveSettings, systemIsDark: Bool, retry: Bool = false) async {
         revision += 1
@@ -53,6 +64,7 @@ public final class MenuBarAppearanceEngine: ObservableObject {
         defer { if currentRevision == revision { isApplying = false } }
         if retry { pausedDisplays.removeAll() }
         let displays = displays()
+        underlay.retainDisplays(Set(displays.map(\.id)))
         var next: [DisplayStatus] = []
         for display in displays {
             var attemptedOutput: URL?
@@ -66,6 +78,7 @@ public final class MenuBarAppearanceEngine: ObservableObject {
                 initialSnapshot = before
                 observePending(for: display, current: before)
                 if !settings.enabled {
+                    underlay.remove(for: display.id)
                     let result = try restore(display, current: before)
                     pausedDisplays.remove(display.id)
                     next.append(DisplayStatus(id: display.id, name: display.name,
@@ -73,6 +86,24 @@ public final class MenuBarAppearanceEngine: ObservableObject {
                                               applied: false, pending: result == .pending))
                     continue
                 }
+                if settings.transparentMenuBarConfirmed == true, underlay.isSupported {
+                    if recovery.owns(before.url) || pendingChanges[display.id] != nil {
+                        underlay.remove(for: display.id)
+                        if try restore(display, current: before) == .pending {
+                            next.append(DisplayStatus(id: display.id, name: display.name,
+                                message: EaveError.pendingSystemChange.localizedDescription, applied: false, pending: true))
+                            continue
+                        }
+                    }
+                    try underlay.apply(settings.effect(systemIsDark: systemIsDark), to: display)
+                    lastApplied.removeValue(forKey: display.id)
+                    pausedDisplays.remove(display.id)
+                    next.append(DisplayStatus(id: display.id, name: display.name,
+                        message: "Color active without changing your wallpaper. Keep ‘Show menu bar background’ off. macOS keeps its menu text color; choose a contrasting background.",
+                        applied: true, usesUnderlay: true))
+                    continue
+                }
+                underlay.remove(for: display.id)
                 let pending = pendingChanges[display.id]
                 if pending == nil, let last = lastApplied[display.id], !last.matches(before),
                    !recovery.owns(before.url) || last.url == before.url {
@@ -87,6 +118,7 @@ public final class MenuBarAppearanceEngine: ObservableObject {
                 guard FileManager.default.isReadableFile(atPath: original.path) else { throw EaveError.missingFile(original.lastPathComponent) }
                 let source = try WallpaperSource.inspect(original)
                 Diagnostics.wallpaper.debug("display=\(display.id, privacy: .public) points=\(display.geometry.pointSize.width)x\(display.geometry.pointSize.height) pixels=\(display.geometry.width)x\(display.geometry.height) scale=\(display.geometry.scale) bandPx=\(display.geometry.bandHeight) type=\(source.kind.rawValue, privacy: .public) sourcePixels=\(source.pixelSize.width)x\(source.pixelSize.height)")
+                if source.kind != .staticImage, underlay.isSupported { throw EaveError.menuBarSetupRequired }
                 try source.requireStatic()
                 _ = try options.placement()
                 let sourceVersion = try original.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey])
@@ -132,6 +164,7 @@ public final class MenuBarAppearanceEngine: ObservableObject {
                 return
             }
             catch {
+                underlay.remove(for: display.id)
                 var message = error.localizedDescription
                 // A failing adapter can have changed the desktop before throwing.
                 // Roll back only our own attempted output, never a new user choice.
@@ -152,12 +185,15 @@ public final class MenuBarAppearanceEngine: ObservableObject {
                     } catch { message += " Restoration: " + error.localizedDescription }
                 }
                 switch error as? EaveError {
-                case .unsupportedWallpaper, .unknownPlacement, .changedDuringRender, .unsafeRecovery:
+                case .unsupportedWallpaper, .unknownPlacement, .changedDuringRender, .unsafeRecovery,
+                     .menuBarSetupRequired, .menuBarUnavailable, .menuBarTransparencyUnavailable:
                     Diagnostics.wallpaper.debug("display=\(display.id, privacy: .public) revision=\(currentRevision) preserved=\(message, privacy: .private)")
                 default:
                     Diagnostics.wallpaper.error("display=\(display.id, privacy: .public) revision=\(currentRevision) error=\(message, privacy: .private)")
                 }
-                next.append(DisplayStatus(id: display.id, name: display.name, message: message, applied: false, failed: true))
+                let hidden = (error as? EaveError) == .menuBarUnavailable
+                next.append(DisplayStatus(id: display.id, name: display.name, message: message, applied: false,
+                    failed: !hidden, pending: hidden, requiresMenuSetup: (error as? EaveError) == .menuBarSetupRequired))
             }
         }
         guard currentRevision == revision, !Task.isCancelled else { return }
@@ -171,6 +207,7 @@ public final class MenuBarAppearanceEngine: ObservableObject {
     @discardableResult
     public func restoreVisible() -> [String] {
         invalidate()
+        underlay.removeAll()
         isApplying = false
         var errors: [String] = []
         for display in displays() {

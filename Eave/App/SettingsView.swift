@@ -20,6 +20,19 @@ struct SettingsView: View {
                     Button("Approve in Login Items…") { SMAppService.openSystemSettingsLoginItems() }
                 }
             }
+            if #available(macOS 27, *) {
+                Section("Transparent menu bar") {
+                    Text("To color dynamic wallpapers without replacing them, turn off ‘Show menu bar background’ in System Settings → Menu Bar, then confirm here. Eave does not change that system setting.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Button("Menu Bar Settings…") { model.openSystemSettings("com.apple.ControlCenter-Settings.extension") }
+                    if model.settings.transparentMenuBarConfirmed == true {
+                        Text("Setup confirmed manually").foregroundStyle(.secondary)
+                        Button("Reset setup confirmation") { model.settings.transparentMenuBarConfirmed = nil }
+                    } else {
+                        Button("Background is off") { model.settings.transparentMenuBarConfirmed = true }
+                    }
+                }
+            }
             Section("Displays") {
                 if model.statuses.isEmpty { Text("Enable Eave to check the current desktop.").foregroundStyle(.secondary) }
                 ForEach(model.statuses) { status in
@@ -30,11 +43,11 @@ struct SettingsView: View {
                 Button("Check Again") { model.schedule(retry: true) }
             }
             Section("How Eave works") {
-                Text("Eave places a color band in a separate copy of your still wallpaper. Your menu bar stays native and interactive. Its text color and translucency remain controlled by macOS.")
-                Text("Dynamic, video and detected managed wallpapers are left untouched. For the closest black match, check Reduce Transparency in Accessibility → Display. Exact displayed colors are not guaranteed.")
+                Text("With transparent-menu setup confirmed, Eave colors the area below your native menu without replacing the wallpaper. Otherwise, supported still wallpapers use a separate rendered copy.")
+                Text("macOS keeps its menu text color. Choose a contrasting background; a white band can hide white text. Transparent-menu coloring also needs Reduce Transparency turned off.")
                 Button("Accessibility Display Settings…") { model.openSystemSettings("com.apple.preference.universalaccess?Seeing_Display") }
                 Text("Only visible desktops can be restored. When disabling Eave, visit each Space with an Eave wallpaper before quitting. Full-screen apps may obscure the effect. Applying a wallpaper may turn off macOS ‘Show on all Spaces’.")
-                Text("With menu bar auto-hide, the wallpaper band remains visible. Eave follows display, wake, Space and application activation events; wallpaper changes made by scripts are detected at the next such event.")
+                Text("Transparent-menu coloring pauses for auto-hide and full-screen presentation. Wallpaper-based bands remain part of the wallpaper. Eave follows display, wake, Space and application activation events.")
                 Button("Open Recovery Folder") {
                     NSWorkspace.shared.open(WallpaperRecoveryService.defaultDirectory)
                 }

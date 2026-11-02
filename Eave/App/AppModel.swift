@@ -11,7 +11,7 @@ final class AppModel: ObservableObject {
             guard settings != oldValue else { return }
             do { try store.save(settings) }
             catch { errorMessage = "Settings could not be saved: \(error.localizedDescription)" }
-            if settings.enabled != oldValue.enabled {
+            if settings.enabled != oldValue.enabled || settings.transparentMenuBarConfirmed != oldValue.transparentMenuBarConfirmed {
                 schedule(retry: settings.enabled)
             } else if settings.effect(systemIsDark: systemIsDark) != oldValue.effect(systemIsDark: systemIsDark) {
                 schedule(debounce: true)
@@ -63,7 +63,7 @@ final class AppModel: ObservableObject {
             self?.schedule()
         }, onSleep: { [weak self] in
             self?.operation?.cancel()
-            self?.engine?.invalidate()
+            self?.engine?.suspend()
         })
         schedule()
     }

@@ -5,19 +5,23 @@ public final class SystemEventMonitor: NSObject {
     private let onChange: @MainActor () -> Void
     private let onSleep: @MainActor () -> Void
     private var appearanceObservation: NSKeyValueObservation?
+    private var presentationObservation: NSKeyValueObservation?
     public init(onChange: @escaping @MainActor () -> Void, onSleep: @escaping @MainActor () -> Void) {
         self.onChange = onChange; self.onSleep = onSleep
         super.init()
         let workspace = NSWorkspace.shared.notificationCenter
         for name in [NSWorkspace.didWakeNotification, NSWorkspace.screensDidWakeNotification,
                      NSWorkspace.activeSpaceDidChangeNotification, NSWorkspace.sessionDidBecomeActiveNotification,
-                     NSWorkspace.didActivateApplicationNotification] {
+                     NSWorkspace.didActivateApplicationNotification, NSWorkspace.accessibilityDisplayOptionsDidChangeNotification] {
             workspace.addObserver(self, selector: #selector(changed), name: name, object: nil)
         }
         workspace.addObserver(self, selector: #selector(sleeping), name: NSWorkspace.willSleepNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(changed), name: NSApplication.didChangeScreenParametersNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(changed), name: NSApplication.didBecomeActiveNotification, object: nil)
         appearanceObservation = NSApp.observe(\.effectiveAppearance, options: [.new]) { [weak self] _, _ in
+            Task { @MainActor [weak self] in self?.onChange() }
+        }
+        presentationObservation = NSApp.observe(\.currentSystemPresentationOptions, options: [.new]) { [weak self] _, _ in
             Task { @MainActor [weak self] in self?.onChange() }
         }
     }

@@ -77,6 +77,9 @@ public struct EaveSettings: Codable, Equatable, Sendable {
     public var hideNotch = false
     public var appearance: AppearanceMode = .system
     public var launchAtLogin = false
+    // A manual confirmation: macOS has no public getter for its menu background switch.
+    // Optional so preferences from earlier builds decode without resetting anything.
+    public var transparentMenuBarConfirmed: Bool?
     public init() {}
     public func selection(systemIsDark: Bool) -> ColorSelection {
         appearance.usesDarkColor(systemIsDark: systemIsDark) ? dark : light

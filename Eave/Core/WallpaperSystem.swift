@@ -4,6 +4,7 @@ public enum EaveError: LocalizedError, Equatable {
     case noWallpaper, missingFile(String), unsupportedWallpaper(String), corruptRecovery
     case unknownGeneratedWallpaper, changedDuringRender, renderingFailed, wallpaperNotApplied
     case unknownPlacement, invalidGeometry, pendingSystemChange, unsafeRecovery
+    case menuBarSetupRequired, menuBarUnavailable, menuBarTransparencyUnavailable
 
     public var errorDescription: String? {
         switch self {
@@ -19,6 +20,9 @@ public enum EaveError: LocalizedError, Equatable {
         case .invalidGeometry: "The display geometry could not be determined safely. No wallpaper was applied."
         case .pendingSystemChange: "Waiting for macOS to confirm the wallpaper change."
         case .unsafeRecovery: "This older recovery record points to a system wallpaper poster, not a recoverable wallpaper configuration. Choose your original wallpaper in System Settings; Eave will not substitute the poster."
+        case .menuBarSetupRequired: "To color the menu without replacing this wallpaper, turn off ‘Show menu bar background’ in System Settings → Menu Bar, then confirm below."
+        case .menuBarUnavailable: "The native menu bar is hidden or in full-screen mode. The color will return when a regular menu bar is available."
+        case .menuBarTransparencyUnavailable: "macOS is making the menu opaque. Turn off Reduce Transparency to use transparent-menu coloring."
         }
     }
 }

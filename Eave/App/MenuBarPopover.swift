@@ -166,12 +166,20 @@ struct StatusView: View {
             } else if let failure = model.statuses.first(where: \.failed) {
                 Label(failure.message, systemImage: "info.circle").foregroundStyle(.secondary)
                 HStack {
-                    Button("Wallpaper Settings") { model.openSystemSettings("com.apple.Wallpaper-Settings.extension") }
-                    Spacer()
-                    Button("Retry") { model.schedule(retry: true) }
+                    if failure.requiresMenuSetup {
+                        Button("Menu Bar Settings") { model.openSystemSettings("com.apple.ControlCenter-Settings.extension") }
+                        Spacer()
+                        Button("Background is off") { model.settings.transparentMenuBarConfirmed = true }
+                    } else {
+                        Button("Wallpaper Settings") { model.openSystemSettings("com.apple.Wallpaper-Settings.extension") }
+                        Spacer()
+                        Button("Retry") { model.schedule(retry: true) }
+                    }
                 }.buttonStyle(.link)
             } else if let pending = model.statuses.first(where: \.pending) {
                 Label(pending.message, systemImage: "clock").foregroundStyle(.secondary)
+            } else if let active = model.statuses.first(where: { $0.applied && $0.usesUnderlay }) {
+                Label(active.message, systemImage: "checkmark.circle").foregroundStyle(.secondary)
             } else {
                 Label(model.settings.enabled && model.statuses.contains(where: \.applied) ? "Applied to the current desktop" : "Original wallpaper preserved",
                       systemImage: "checkmark.circle").foregroundStyle(.secondary)
