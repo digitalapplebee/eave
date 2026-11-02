@@ -14,12 +14,21 @@ struct MenuBarPopover: View {
                     Text("Make your Mac yours.").font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Toggle("Enable Eave", isOn: $model.settings.enabled)
-                    .labelsHidden().toggleStyle(.switch).controlSize(.small)
-                    .disabled(!model.isReady).help("Apply or restore the menu bar wallpaper effect")
+                VStack(alignment: .trailing, spacing: 5) {
+                    Toggle("Enable Eave", isOn: $model.settings.enabled)
+                        .labelsHidden().toggleStyle(.switch).controlSize(.small)
+                        .disabled(!model.isReady).help("Request or restore the menu bar effect; see its status below")
+                    Text(model.appearanceState.title)
+                        .font(.caption).foregroundStyle(stateColor)
+                        .accessibilityLabel("Effect status: \(model.appearanceState.title)")
+                }
             }
 
-            MenuBarPreview(style: model.effectiveStyle, enabled: model.settings.enabled)
+            VStack(alignment: .leading, spacing: 6) {
+                MenuBarPreview(style: model.effectiveStyle, enabled: model.settings.enabled)
+                Text(model.appearanceState.previewCaption)
+                    .font(.caption).foregroundStyle(.secondary)
+            }
 
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
@@ -59,6 +68,15 @@ struct MenuBarPopover: View {
             }.buttonStyle(.plain).font(.caption).foregroundStyle(.secondary)
         }
         .padding(20).frame(width: 370)
+    }
+
+    private var stateColor: Color {
+        switch model.appearanceState {
+        case .applied: .green
+        case .partiallyApplied, .notApplied: .orange
+        case .restoreFailed: .red
+        default: .secondary
+        }
     }
 }
 
@@ -113,6 +131,7 @@ struct AppearanceControls: View {
             HStack(spacing: 12) {
                 Text("Opacity").font(.caption).foregroundStyle(.secondary)
                 Slider(value: $model.settings.opacity, in: 0...1, step: 0.01) { Text("Menu bar opacity") }
+                    .labelsHidden().accessibilityLabel("Menu bar opacity")
                 Text(model.settings.opacity, format: .percent.precision(.fractionLength(0)))
                     .font(.caption.monospacedDigit()).frame(width: 34, alignment: .trailing)
             }
@@ -161,8 +180,8 @@ struct StatusView: View {
             if let error = model.errorMessage {
                 Text(error).foregroundStyle(.red).textSelection(.enabled)
             }
-            if model.isApplying {
-                HStack { ProgressView().controlSize(.mini); Text("Updating desktop…") }
+            if let progressMessage {
+                HStack { ProgressView().controlSize(.mini); Text(progressMessage) }
             } else if let failure = model.statuses.first(where: \.failed) {
                 Label(failure.message, systemImage: "info.circle").foregroundStyle(.secondary)
                 HStack {
@@ -181,9 +200,27 @@ struct StatusView: View {
             } else if let active = model.statuses.first(where: { $0.applied && $0.usesUnderlay }) {
                 Label(active.message, systemImage: "checkmark.circle").foregroundStyle(.secondary)
             } else {
-                Label(model.settings.enabled && model.statuses.contains(where: \.applied) ? "Applied to the current desktop" : "Original wallpaper preserved",
-                      systemImage: "checkmark.circle").foregroundStyle(.secondary)
+                Label(summaryMessage, systemImage: model.appearanceState == .notApplied ? "info.circle" : "checkmark.circle")
+                    .foregroundStyle(.secondary)
             }
         }.font(.caption).fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var progressMessage: String? {
+        switch model.appearanceState {
+        case .checking: "Checking the current desktop…"
+        case .applying: "Updating desktop…"
+        case .restoring: "Restoring original wallpaper…"
+        default: nil
+        }
+    }
+
+    private var summaryMessage: String {
+        switch model.appearanceState {
+        case .applied: "Applied to the current desktop"
+        case .partiallyApplied: "Applied to some displays"
+        case .off: "Original wallpaper preserved"
+        default: "Effect not applied to the current desktop"
+        }
     }
 }

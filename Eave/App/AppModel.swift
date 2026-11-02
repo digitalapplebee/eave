@@ -28,6 +28,8 @@ final class AppModel: ObservableObject {
     private var operation: Task<Void, Never>?
     private var subscription: AnyCancellable?
     private var started = false
+    @Published private var requestPending = false
+    private var requestID = UUID()
 
     init() {
         do {
@@ -51,8 +53,11 @@ final class AppModel: ObservableObject {
         set { if usesDarkColor { settings.dark = newValue } else { settings.light = newValue } }
     }
     var statuses: [DisplayStatus] { engine?.statuses ?? [] }
-    var isApplying: Bool { engine?.isApplying ?? false }
+    var isApplying: Bool { requestPending || (engine?.isApplying ?? false) }
     var isReady: Bool { engine != nil }
+    var appearanceState: AppearanceState {
+        AppearanceState.resolve(enabled: settings.enabled, isApplying: isApplying, statuses: statuses)
+    }
 
     func start() {
         guard !started else { return }
@@ -76,12 +81,17 @@ final class AppModel: ObservableObject {
     }
 
     func schedule(retry: Bool = false, debounce: Bool = false) {
+        let id = UUID()
+        requestID = id
         operation?.cancel()
         engine?.invalidate()
+        requestPending = true
         operation = Task { [weak self] in
+            guard let self else { return }
+            defer { if self.requestID == id { self.requestPending = false } }
             do { if debounce { try await Task.sleep(for: .milliseconds(220)) } }
             catch { return }
-            guard let self, let engine = self.engine else { return }
+            guard !Task.isCancelled, let engine = self.engine else { return }
             await engine.reconcile(settings: self.settings, systemIsDark: self.systemIsDark, retry: retry)
         }
     }
