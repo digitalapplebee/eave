@@ -15,10 +15,7 @@ struct SettingsView: View {
                     .font(.caption).foregroundStyle(.secondary)
                 ColorProfileRow(title: "Light", selection: $model.settings.light)
                 ColorProfileRow(title: "Dark", selection: $model.settings.dark)
-                Toggle("Launch at Login", isOn: Binding(get: { model.settings.launchAtLogin }, set: { model.setLogin($0) }))
-                if model.loginStatus == .requiresApproval {
-                    Button("Approve in Login Items…") { SMAppService.openSystemSettingsLoginItems() }
-                }
+                LaunchAtLoginControl(model: model)
             }
             if #available(macOS 27, *) {
                 Section("Transparent menu bar") {
@@ -57,6 +54,31 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped).frame(width: 480, height: 650)
+    }
+}
+
+struct LaunchAtLoginControl: View {
+    @ObservedObject var model: AppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Toggle("Launch at Login", isOn: Binding(get: { model.settings.launchAtLogin }, set: { model.setLogin($0) }))
+                .toggleStyle(.switch).controlSize(.small)
+                .help("Start Eave automatically when you sign in to macOS")
+            if model.loginStatus == .requiresApproval {
+                Text("Allow Eave in Login Items to start automatically when you sign in.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Button("Approve in Login Items…") { SMAppService.openSystemSettingsLoginItems() }
+                    .buttonStyle(.link).font(.caption)
+            } else if model.loginStatus == .notFound {
+                Text("Run the installed Eave.app to manage Launch at Login.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            if let error = model.loginErrorMessage {
+                Text(error).font(.caption).foregroundStyle(.red).textSelection(.enabled)
+            }
+        }
+        .onAppear { model.refreshLoginStatus() }
     }
 }
 

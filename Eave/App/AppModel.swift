@@ -21,6 +21,7 @@ final class AppModel: ObservableObject {
     @Published private(set) var systemIsDark = false
     @Published var errorMessage: String?
     @Published private(set) var loginStatus = SMAppService.mainApp.status
+    @Published private(set) var loginErrorMessage: String?
     private(set) var engine: MenuBarAppearanceEngine?
     private let store = SettingsStore()
     private var instanceLock: InstanceLock?
@@ -75,6 +76,10 @@ final class AppModel: ObservableObject {
 
     private func updateSystemState() {
         systemIsDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        refreshLoginStatus()
+    }
+
+    func refreshLoginStatus() {
         loginStatus = SMAppService.mainApp.status
         let registered = loginStatus == .enabled || loginStatus == .requiresApproval
         if settings.launchAtLogin != registered { settings.launchAtLogin = registered }
@@ -97,15 +102,17 @@ final class AppModel: ObservableObject {
     }
 
     func setLogin(_ enabled: Bool) {
+        loginErrorMessage = nil
+        refreshLoginStatus()
+        guard enabled != settings.launchAtLogin else { return }
+        defer { refreshLoginStatus() }
         do {
             if enabled {
                 try SMAppService.mainApp.register()
             } else {
                 try SMAppService.mainApp.unregister()
             }
-            loginStatus = SMAppService.mainApp.status
-            settings.launchAtLogin = loginStatus == .enabled || loginStatus == .requiresApproval
-        } catch { errorMessage = "Launch at Login: \(error.localizedDescription)" }
+        } catch { loginErrorMessage = "Launch at Login: \(error.localizedDescription)" }
     }
 
     func shutdown() -> Bool {

@@ -68,7 +68,7 @@ Only visible desktops can be restored at once. Disable Eave, visit each modified
 
 ## Launch at Login does not work
 
-Run the packaged `.app` from a permanent location, normally `/Applications`. Check **System Settings → General → Login Items**, and approve Eave if the system requests it. After moving the app or changing its signing identity, disable and enable Launch at Login again. ServiceManagement errors are shown in Eave.
+Run the packaged `.app` from a permanent location, normally `/Applications`, then enable **Launch at Login** in Eave's popover or Settings. If Eave shows an approval message, choose **Approve in Login Items…** and allow it in System Settings. Reopen Eave's popover to refresh the status. After moving the app or changing its signing identity, disable and enable Launch at Login again. ServiceManagement errors appear next to the switch.
 
 The executable started by `swift run` is not a substitute for an installed app bundle. Login after logout/reboot is a manual acceptance check.
 

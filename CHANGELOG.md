@@ -7,11 +7,13 @@ Notable changes are recorded here. The format follows [Keep a Changelog](https:/
 ### Added
 
 - Transparent-menu coloring on macOS 27 after manually confirming that the system menu-bar background is off; dynamic wallpaper providers stay selected.
+- Launch at Login control in the menu-bar popover, with system approval guidance and registration errors beside the switch.
 
 ### Fixed
 
 - Show the observed effect/restoration state separately from the enable request and selected-style preview.
 - Mark scheduled appearance updates pending before debounce, and remove the duplicate opacity-slider label.
+- Refresh Login Items status when opening its controls and after registration failures.
 
 ## [0.1.0] — Prepared, not published
 

@@ -54,7 +54,7 @@ Click the menu-bar icon and turn on **Enable Eave**. Choose a preset, open the c
 
 For transparent-menu rendering on macOS 27, choose **Menu Bar Settings**, turn off **Show menu bar background**, return to Eave and select **Background is off**. This is a manual confirmation; Eave does not change or read that global preference through an undocumented API. Keep **Reduce Transparency** off for this path. If you later re-enable the system background, reset the setup confirmation in Eave's Settings before configuring it again.
 
-Choose **Follow System**, **Light** or **Dark**. In Settings, edit the separate color profiles and enable **Launch at Login**. macOS may require approval in Login Items. Install Eave in its permanent location before registering it for login.
+Choose **Follow System**, **Light** or **Dark**. In Settings, edit the separate color profiles. Enable **Launch at Login** directly in the menu-bar popover or in Settings to start Eave when you sign in. If macOS requires approval, choose **Approve in Login Items…**. Install Eave in its permanent location before registering it for login.
 
 Turning Eave off removes its transparent-menu background windows. If wallpaper composition was used, it restores visible desktops: **visit every affected Space and reconnect affected displays while Eave is disabled before quitting**. Quit also tries to restore visible composed wallpapers; it keeps Eave open and explains restoration failures. If an older version recorded a system poster instead of the original Dynamic Wallpaper, select the wallpaper you want again in System Settings.
 

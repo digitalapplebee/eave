@@ -55,6 +55,8 @@ struct MenuBarPopover: View {
                 }.labelsHidden().frame(width: 150)
             }
 
+            LaunchAtLoginControl(model: model)
+
             StatusView(model: model)
 
             Divider()
