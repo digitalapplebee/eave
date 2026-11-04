@@ -90,7 +90,8 @@ public final class MenuBarUnderlay: MenuBarUnderlayRendering {
             panel.hasShadow = false
             panel.hidesOnDeactivate = false
             panel.isReleasedWhenClosed = false
-            panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
+            // Let macOS hide the band in Mission Control and restore it afterward.
+            panel.collectionBehavior = [.canJoinAllSpaces, .transient, .ignoresCycle]
             panels[display.id] = panel
         }
         panel.isOpaque = style.opacity >= 1

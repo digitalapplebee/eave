@@ -11,6 +11,7 @@ Notable changes are recorded here. The format follows [Keep a Changelog](https:/
 
 ### Fixed
 
+- Hide the transparent-menu background in Mission Control so it does not cover Spaces controls.
 - Show the observed effect/restoration state separately from the enable request and selected-style preview.
 - Mark scheduled appearance updates pending before debounce, and remove the duplicate opacity-slider label.
 - Refresh Login Items status when opening its controls and after registration failures.
